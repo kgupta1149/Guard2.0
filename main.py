@@ -1,13 +1,26 @@
 import joblib
 
-# Load saved model and vectorizer
-model = joblib.load("phish_model.pkl")
-vectorizer = joblib.load("vectorizer.pkl")
+_model = None
+_vectorizer = None
 
-def scan_url(url,model=model, vectorizer=vectorizer):
-    # Turn input into a format the model understands
-    url_vector = vectorizer.transform([url])
-    prediction = model.predict(url_vector)
+def load_artifacts():
+    """
+    Lazy-load model/vectorizer so importing this module doesn't require
+    local .pkl files (important for unit tests and CI).
+    """
+    global _model, _vectorizer
+    if _model is None or _vectorizer is None:
+        _model = joblib.load("phish_model.pkl")
+        _vectorizer = joblib.load("vectorizer.pkl")
+    return _model, _vectorizer
+
+def scan_url(url, model_obj=None, vectorizer_obj=None):
+    # Use injected fakes for unit tests; otherwise lazy-load real artifacts
+    if model_obj is None or vectorizer_obj is None:
+        model_obj, vectorizer_obj = load_artifacts()
+
+    url_vector = vectorizer_obj.transform([url])
+    prediction = model_obj.predict(url_vector)
     return "⚠️ Phishing" if prediction[0] == 1 else "✅ Safe"
 
 def main():
